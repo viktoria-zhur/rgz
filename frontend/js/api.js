@@ -1,6 +1,7 @@
 class BankAPI {
     constructor() {
-        this.baseUrl = 'http://localhost:5000/api';
+        // ИЗМЕНЕНО: относительный путь
+        this.baseUrl = '/api';
         this.requestId = 1;
     }
 
@@ -12,26 +13,31 @@ class BankAPI {
             id: this.requestId++
         };
 
-        const response = await fetch(this.baseUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(request),
-            credentials: 'include'
-        });
+        try {
+            const response = await fetch(this.baseUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(request),
+                credentials: 'include'  // Для куков сессии
+            });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error.message);
+            }
+
+            return data.result;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
         }
-
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error(data.error.message);
-        }
-
-        return data.result;
     }
 
     async login(login, password) {

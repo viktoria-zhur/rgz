@@ -1,12 +1,13 @@
-# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
 venv/
-
-# Database
-*.db
-*.sqlite3
-
-# OS
+ENV/
+env.bak/
+venv.bak/
+instance/
+database.db
 .DS_Store
-Thumbs.db
