@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, send_from_directory
+from flask import Flask, request, jsonify, session, send_from_directory, render_template_string
 from flask_cors import CORS
 from models import db, User, Transaction
 from validators import Validator
@@ -6,7 +6,9 @@ from auth import login_required, manager_required, client_required
 import random
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, 
+            static_folder='../frontend',  # Добавлено для статических файлов
+            template_folder='../frontend') # Добавлено для шаблонов
 app.config['SECRET_KEY'] = 'banking-system-secret-key-2025'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -14,16 +16,20 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Определяем где запускаем
 if 'PYTHONANYWHERE_DOMAIN' in os.environ:
     # Продакшен на PythonAnywhere
-    USERNAME = 'dizalick05'  # ЗАМЕНИТЕ НА ВАШ ЛОГИН!
+    USERNAME = 'dizalick05'
+    # ПРАВИЛЬНЫЙ ПУТЬ К БАЗЕ ДАННЫХ:
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:////home/{USERNAME}/rgz/database.db'
     DOMAINS = [
         f'https://{USERNAME}.pythonanywhere.com',
         f'http://{USERNAME}.pythonanywhere.com'
     ]
+    # ПРАВИЛЬНЫЙ ПУТЬ К FRONTEND:
+    FRONTEND_PATH = f'/home/{USERNAME}/rgz/frontend'
 else:
     # Локальная разработка
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
     DOMAINS = ['http://localhost:5000', 'http://127.0.0.1:5000']
+    FRONTEND_PATH = '../frontend'
 
 # CORS настройки
 CORS(app, 
@@ -94,26 +100,60 @@ def initialize_test_data():
 def index():
     """Главная страница"""
     try:
-        return send_from_directory('../frontend', 'index.html')
+        return send_from_directory(FRONTEND_PATH, 'index.html')
     except Exception as e:
         print(f"Ошибка загрузки фронтенда: {e}")
+        # Возвращаем простую HTML страницу если не получается загрузить index.html
         return '''
-        <h1>Банковская система</h1>
-        <p>Сервер работает. API доступно по адресу /api</p>
-        <p>Фронтенд не загрузился. Проверьте статические файлы.</p>
+        <!DOCTYPE html>
+        <html lang='ru'>
+        <head>
+            <meta charset='UTF-8'>
+            <title>Банковская система</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
+                h1 { color: #3498db; }
+                .error { color: #e74c3c; margin: 20px 0; }
+                .links { margin-top: 30px; }
+                a { display: inline-block; margin: 10px; padding: 10px 20px; background: #3498db; color: white; text-decoration: none; border-radius: 5px; }
+            </style>
+        </head>
+        <body>
+            <h1>Банковская система</h1>
+            <div class="student-info">
+                <strong>Студент:</strong> Виктория Журавлева<br>
+                <strong>Группа:</strong> ФБИ-34, 2025 год
+            </div>
+            <div class="error">
+                Внимание: Фронтенд не загрузился. Возможна проблема с путями.<br>
+                Ошибка: ''' + str(e) + '''
+            </div>
+            <div class="links">
+                <a href="/api">Проверить API</a>
+                <a href="/css/style.css">Проверить CSS</a>
+                <a href="/js/app.js">Проверить JS</a>
+            </div>
+        </body>
+        </html>
         '''
 
 @app.route('/css/<path:filename>')
 def serve_css(filename):
-    return send_from_directory('../frontend/css', filename)
+    try:
+        return send_from_directory(os.path.join(FRONTEND_PATH, 'css'), filename)
+    except:
+        return send_from_directory(FRONTEND_PATH, filename)
 
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory('../frontend/js', filename)
+    try:
+        return send_from_directory(os.path.join(FRONTEND_PATH, 'js'), filename)
+    except:
+        return send_from_directory(FRONTEND_PATH, filename)
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory('../frontend', filename)
+    return send_from_directory(FRONTEND_PATH, filename)
 
 # ==================== API ====================
 @app.route('/api', methods=['POST', 'OPTIONS'])
@@ -435,5 +475,8 @@ if __name__ == '__main__':
     print("-" * 40)
     print("Менеджеры: admin1/admin123, manager1/manager123")
     print("Клиенты: client1/client1 ... client10/client10")
+    print("=" * 60)
+    print(f"Frontend путь: {FRONTEND_PATH}")
+    print(f"База данных: {app.config['SQLALCHEMY_DATABASE_URI']}")
     print("=" * 60)
     app.run(debug=True)
