@@ -5,31 +5,36 @@ from validators import Validator
 from auth import login_required, manager_required, client_required
 import random
 import os
-import traceback
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'banking-system-secret-key-2025'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# ВАЖНО: Добавляем домен, с которого работает фронтенд
+# ==================== НАСТРОЙКА ДЛЯ PYTHONANYWHERE ====================
+# Определяем где запускаем
+if 'PYTHONANYWHERE_DOMAIN' in os.environ:
+    # Продакшен на PythonAnywhere
+    USERNAME = 'dizalick05'  # ЗАМЕНИТЕ НА ВАШ ЛОГИН!
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:////home/{USERNAME}/rgz/database.db'
+    DOMAINS = [
+        f'https://{USERNAME}.pythonanywhere.com',
+        f'http://{USERNAME}.pythonanywhere.com'
+    ]
+else:
+    # Локальная разработка
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+    DOMAINS = ['http://localhost:5000', 'http://127.0.0.1:5000']
+
+# CORS настройки
 CORS(app, 
      supports_credentials=True, 
-     origins=['http://localhost:5000', 'http://127.0.0.1:5000'],
+     origins=DOMAINS,
      allow_headers=['Content-Type'],
      methods=['GET', 'POST', 'OPTIONS'])
 
 db.init_app(app)
 
-# Добавляем обработку OPTIONS запросов для CORS
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5000')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 def generate_account_number():
     return f"ACC{random.randint(1000, 9999)}"
 
@@ -85,87 +90,50 @@ def initialize_test_data():
             print("Тестовые данные созданы")
 
 # ==================== СТАТИЧЕСКИЕ ФАЙЛЫ ====================
-
 @app.route('/')
 def index():
-    """Главная страница - фронтенд приложение"""
+    """Главная страница"""
     try:
         return send_from_directory('../frontend', 'index.html')
     except Exception as e:
         print(f"Ошибка загрузки фронтенда: {e}")
-        traceback.print_exc()
-        return f"Ошибка загрузки фронтенда: {e}", 500
+        return '''
+        <h1>Банковская система</h1>
+        <p>Сервер работает. API доступно по адресу /api</p>
+        <p>Фронтенд не загрузился. Проверьте статические файлы.</p>
+        '''
 
-# Маршрут для CSS файлов
 @app.route('/css/<path:filename>')
 def serve_css(filename):
-    try:
-        return send_from_directory('../frontend/css', filename)
-    except:
-        return "CSS файл не найден", 404
+    return send_from_directory('../frontend/css', filename)
 
-# Маршрут для JS файлов
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    try:
-        return send_from_directory('../frontend/js', filename)
-    except:
-        return "JS файл не найден", 404
+    return send_from_directory('../frontend/js', filename)
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('../frontend', filename)
 
 # ==================== API ====================
-
 @app.route('/api', methods=['POST', 'OPTIONS'])
 def jsonrpc_handler():
-    # Обработка CORS preflight запросов
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
     
-    print("=" * 50)
-    print("Получен API запрос")
-    print(f"Метод: {request.method}")
-    print(f"Заголовки: {dict(request.headers)}")
-    print(f"Content-Type: {request.content_type}")
-    
     try:
-        # Проверяем, есть ли JSON данные
         if not request.is_json:
-            print("ОШИБКА: Запрос не содержит JSON")
-            print(f"Тело запроса: {request.data}")
             return jsonify({
                 'jsonrpc': '2.0',
-                'error': {'code': -32600, 'message': 'Invalid Request: Not JSON'},
+                'error': {'code': -32600, 'message': 'Invalid Request'},
                 'id': None
             }), 400
         
         data = request.get_json()
-        print(f"JSON данные: {data}")
-        
-        # Проверяем обязательные поля JSON-RPC
-        if 'jsonrpc' not in data or data.get('jsonrpc') != '2.0':
-            print("ОШИБКА: Неверная версия JSON-RPC")
-            return jsonify({
-                'jsonrpc': '2.0',
-                'error': {'code': -32600, 'message': 'Invalid Request: Not JSON-RPC 2.0'},
-                'id': None
-            }), 400
-        
-        if 'method' not in data:
-            print("ОШИБКА: Не указан метод")
-            return jsonify({
-                'jsonrpc': '2.0',
-                'error': {'code': -32600, 'message': 'Invalid Request: No method specified'},
-                'id': None
-            }), 400
-        
         method = data.get('method')
         params = data.get('params', {})
         request_id = data.get('id')
         
-        print(f"Вызываем метод: {method}")
-        print(f"Параметры: {params}")
-        print(f"ID запроса: {request_id}")
-        
-        # Инициализируем тестовые данные
         initialize_test_data()
         
         handlers = {
@@ -186,31 +154,25 @@ def jsonrpc_handler():
         if method in handlers:
             try:
                 result = handlers[method](params)
-                print(f"Метод {method} выполнен успешно")
                 return jsonify({
                     'jsonrpc': '2.0',
                     'result': result,
                     'id': request_id
                 })
             except Exception as e:
-                print(f"ОШИБКА в методе {method}: {str(e)}")
-                traceback.print_exc()
                 return jsonify({
                     'jsonrpc': '2.0',
                     'error': {'code': -32000, 'message': str(e)},
                     'id': request_id
                 }), 400
         else:
-            print(f"ОШИБКА: Метод {method} не найден")
             return jsonify({
                 'jsonrpc': '2.0',
-                'error': {'code': -32601, 'message': f'Method {method} not found'},
+                'error': {'code': -32601, 'message': 'Method not found'},
                 'id': request_id
             }), 404
             
     except Exception as e:
-        print(f"ОШИБКА в jsonrpc_handler: {str(e)}")
-        traceback.print_exc()
         return jsonify({
             'jsonrpc': '2.0',
             'error': {'code': -32603, 'message': f'Internal error: {str(e)}'},
@@ -221,8 +183,6 @@ def handle_login(params):
     login = params.get('login')
     password = params.get('password')
     
-    print(f"Логин: {login}, Пароль: {password}")
-    
     is_valid, message = Validator.validate_login(login)
     if not is_valid:
         raise Exception(message)
@@ -232,20 +192,10 @@ def handle_login(params):
         raise Exception(message)
     
     user = User.query.filter_by(login=login).first()
-    if not user:
-        print(f"Пользователь с логином {login} не найден")
+    if not user or not user.check_password(password) or not user.is_active:
         raise Exception('Неверный логин или пароль')
-    
-    if not user.check_password(password):
-        print(f"Неверный пароль для пользователя {login}")
-        raise Exception('Неверный логин или пароль')
-    
-    if not user.is_active:
-        print(f"Пользователь {login} не активен")
-        raise Exception('Пользователь заблокирован')
     
     session['user_id'] = user.id
-    print(f"Успешная авторизация для пользователя {user.id}")
     
     return {
         'user': user.to_dict()
@@ -474,24 +424,16 @@ def handle_get_statistics(params):
         'total_balance': round(total_balance, 2)
     }
 
+# ==================== ЗАПУСК ====================
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        print("База данных инициализирована")
-    
     print("=" * 60)
     print("БАНКОВСКАЯ СИСТЕМА ЗАПУЩЕНА!")
     print("=" * 60)
-    print("Сервер доступен по адресу: http://localhost:5000")
-    print("\nДемо доступы:")
+    print("Демо доступы:")
     print("-" * 40)
-    print("Менеджеры:")
-    print("  Логин: admin1     Пароль: admin123")
-    print("  Логин: manager1   Пароль: manager123")
-    print("\nКлиенты:")
-    print("  Логин: client1    Пароль: client1")
-    print("  Логин: client2    Пароль: client2")
-    print("  ... и так до client10")
+    print("Менеджеры: admin1/admin123, manager1/manager123")
+    print("Клиенты: client1/client1 ... client10/client10")
     print("=" * 60)
-    
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    app.run(debug=True)

@@ -1,0 +1,19 @@
+# Структура для PythonAnywhere
+/home/dizalick05/rgz/
+├── backend/
+│   ├── app.py          # основной файл
+│   ├── auth.py
+│   ├── models.py
+│   ├── validators.py
+│   └── __init__.py
+├── frontend/
+│   ├── index.html
+│   ├── css/
+│   │   └── style.css
+│   └── js/
+│       ├── api.js
+│       └── app.js
+├── wsgi.py             # для PythonAnywhere
+├── requirements.txt
+├── runtime.txt
+└── .gitignore

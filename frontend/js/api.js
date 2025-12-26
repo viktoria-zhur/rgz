@@ -1,6 +1,6 @@
 class BankAPI {
     constructor() {
-        // ИЗМЕНЕНО: относительный путь
+        // Относительный путь - работает везде
         this.baseUrl = '/api';
         this.requestId = 1;
     }
@@ -20,7 +20,7 @@ class BankAPI {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(request),
-                credentials: 'include'  // Для куков сессии
+                credentials: 'include'
             });
 
             if (!response.ok) {
