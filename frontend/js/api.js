@@ -21,6 +21,10 @@ class BankAPI {
             credentials: 'include'
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.error) {
@@ -28,6 +32,54 @@ class BankAPI {
         }
 
         return data.result;
+    }
+
+    async login(login, password) {
+        return await this.call('login', { login, password });
+    }
+
+    async logout() {
+        return await this.call('logout', {});
+    }
+
+    async verifyToken() {
+        return await this.call('verifyToken', {});
+    }
+
+    async getAccountInfo() {
+        return await this.call('getAccountInfo');
+    }
+
+    async getTransactionHistory() {
+        return await this.call('getTransactionHistory');
+    }
+
+    async transferMoney(params) {
+        return await this.call('transferMoney', params);
+    }
+
+    async getAllUsers() {
+        return await this.call('getAllUsers');
+    }
+
+    async createUser(userData) {
+        return await this.call('createUser', userData);
+    }
+
+    async updateUser(userData) {
+        return await this.call('updateUser', userData);
+    }
+
+    async deleteUser(userId) {
+        return await this.call('deleteUser', { id: userId });
+    }
+
+    async deleteAccount() {
+        return await this.call('deleteAccount', {});
+    }
+
+    async getStatistics() {
+        return await this.call('getStatistics');
     }
 }
 
